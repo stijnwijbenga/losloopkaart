@@ -201,6 +201,80 @@
     color:#dff3fa;
   }
 
+  /* ---------- distance filter ---------- */
+  .distance-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+  .location-box{
+    flex:1 1 220px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:10px 14px;
+    transition:border-color .15s ease;
+  }
+  .location-box svg{flex:none;opacity:.6;}
+  .location-box input{
+    background:transparent;
+    border:none;
+    outline:none;
+    color:var(--text);
+    font-family:'Public Sans',sans-serif;
+    font-size:14px;
+    width:100%;
+  }
+  .location-box input::placeholder{color:var(--text-muted);}
+  .location-box.ok{border-color:rgba(110,140,94,0.6);}
+  .location-box.error{border-color:rgba(196,104,58,0.6);}
+  .location-clear{
+    background:none;
+    border:none;
+    color:var(--text-muted);
+    cursor:pointer;
+    font-size:15px;
+    line-height:1;
+    padding:0 2px;
+    flex:none;
+  }
+  .location-clear:hover{color:var(--text);}
+  .location-status{font-size:12px;color:var(--text-muted);}
+  .location-status.err{color:var(--rust);}
+  .slider-group{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  input[type=range]{
+    -webkit-appearance:none;
+    appearance:none;
+    width:130px;
+    height:4px;
+    border-radius:2px;
+    background:var(--surface-2);
+    outline:none;
+    cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:18px;
+    height:18px;
+    border-radius:50%;
+    background:var(--moss);
+    cursor:pointer;
+    border:none;
+  }
+  input[type=range]::-moz-range-thumb{
+    width:18px;
+    height:18px;
+    border-radius:50%;
+    background:var(--moss);
+    cursor:pointer;
+    border:none;
+  }
+  .dist-badge{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    color:var(--moss);
+    margin-left:4px;
+  }
+
   /* ---------- results ---------- */
   main{max-width:1180px;margin:0 auto;padding:24px;}
   .results-meta{
@@ -433,6 +507,19 @@
       <span class="label">Kenmerken</span>
       <!-- gevuld via JS, zwemwater altijd vooraan + blauw -->
     </div>
+    <div class="distance-row">
+      <div class="location-box" id="location-box">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a7 7 0 0 1 7 7c0 5.25-7 13-7 13S5 14.25 5 9a7 7 0 0 1 7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+        <input type="text" id="location-input" placeholder="Postcode of plaatsnaam…" autocomplete="off">
+        <button class="location-clear" id="location-clear" title="Locatie wissen" style="display:none">✕</button>
+      </div>
+      <div class="slider-group" id="slider-group" style="display:none">
+        <span class="label">Max. afstand</span>
+        <input type="range" id="distance-slider" min="5" max="200" step="5" value="25">
+        <span class="mono" id="distance-km">25 km</span>
+      </div>
+      <span class="location-status" id="location-status"></span>
+    </div>
   </div>
 </div>
 
@@ -480,6 +567,26 @@ const ALL_KENMERKEN = ['zwemwater','wandelroutes','horeca','rolstoelvriendelijk'
 
 let DATA = JSON.parse(document.getElementById('sample-data').textContent);
 let state = { query:'', type:null, kenmerken:new Set(), provincie:'', sort:'populariteit', seizoenOnly:false };
+let geoState = { lat:null, lon:null, maxKm:25 };
+
+function haversine(lat1, lon1, lat2, lon2){
+  const R = 6371;
+  const dLat = (lat2-lat1)*Math.PI/180;
+  const dLon = (lon2-lon1)*Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R*2*Math.asin(Math.sqrt(a));
+}
+
+async function geocodeLocatie(query){
+  const params = new URLSearchParams({ q:query, countrycodes:'nl', format:'json', limit:'1', 'accept-language':'nl' });
+  const resp = await fetch('https://nominatim.openstreetmap.org/search?' + params, {
+    headers:{ 'User-Agent':'LosloopkaartApp/1.0 (persoonlijk gebruik)' }
+  });
+  if(!resp.ok) throw new Error('Verbindingsfout');
+  const data = await resp.json();
+  if(!data.length) throw new Error('Locatie niet gevonden');
+  return { lat:parseFloat(data[0].lat), lon:parseFloat(data[0].lon) };
+}
 
 function noteKey(slug){ return 'losloopkaart:notitie:' + slug; }
 function getNote(slug){
@@ -556,6 +663,10 @@ function matches(area){
   for(const k of state.kenmerken){
     if(!area.kenmerken || !area.kenmerken.includes(k)) return false;
   }
+  if(geoState.lat !== null){
+    if(!area.lat || !area.lon) return false;
+    if(haversine(geoState.lat, geoState.lon, area.lat, area.lon) > geoState.maxKm) return false;
+  }
   if(state.query){
     const q = state.query.toLowerCase();
     const hay = [area.naam, area.plaats, area.beschrijving].filter(Boolean).join(' ').toLowerCase();
@@ -568,7 +679,15 @@ function sortAreas(list){
   const copy = [...list];
   if(state.sort === 'naam') copy.sort((a,b)=> (a.naam||'').localeCompare(b.naam||'','nl'));
   else if(state.sort === 'plaats') copy.sort((a,b)=> (a.plaats||'').localeCompare(b.plaats||'','nl'));
-  else copy.sort((a,b)=> (b.keer_bekeken||0) - (a.keer_bekeken||0));
+  else if(state.sort === 'afstand' && geoState.lat !== null){
+    copy.sort((a,b)=>{
+      const da = (a.lat && a.lon) ? haversine(geoState.lat,geoState.lon,a.lat,a.lon) : Infinity;
+      const db = (b.lat && b.lon) ? haversine(geoState.lat,geoState.lon,b.lat,b.lon) : Infinity;
+      return da - db;
+    });
+  } else {
+    copy.sort((a,b)=> (b.keer_bekeken||0) - (a.keer_bekeken||0));
+  }
   return copy;
 }
 
@@ -617,7 +736,7 @@ function card(area){
           ${seizoenBadge}
         </div>
         <h3>${escapeHtml(area.naam)||'Onbekend'}</h3>
-        <p class="plaats">${escapeHtml([area.plaats, area.provincie].filter(Boolean).join(', '))}</p>
+        <p class="plaats">${escapeHtml([area.plaats, area.provincie].filter(Boolean).join(', '))}${geoState.lat!==null&&area.lat&&area.lon?`<span class="dist-badge"> · ${Math.round(haversine(geoState.lat,geoState.lon,area.lat,area.lon))} km</span>`:''}</p>
         <div class="kenmerken-row">${kenmerkenBadges}</div>
         ${descHtml}
         ${linksHtml}
@@ -669,6 +788,7 @@ document.getElementById('reset-btn').addEventListener('click', ()=>{
   document.getElementById('provincie-select').value = '';
   document.getElementById('sort-select').value = 'populariteit';
   document.getElementById('seizoen-toggle').classList.remove('active');
+  clearLocation();
   render();
 });
 document.getElementById('load-btn').addEventListener('click', ()=>{
@@ -692,6 +812,74 @@ document.getElementById('file-input').addEventListener('change', e=>{
     }
   };
   reader.readAsText(file);
+});
+
+function setAfstandSort(active){
+  const sel = document.getElementById('sort-select');
+  let opt = sel.querySelector('option[value="afstand"]');
+  if(active && !opt){
+    opt = document.createElement('option');
+    opt.value = 'afstand';
+    opt.textContent = 'Sorteer: afstand';
+    sel.appendChild(opt);
+  } else if(!active && opt){
+    opt.remove();
+    if(state.sort === 'afstand'){ state.sort = 'populariteit'; sel.value = 'populariteit'; }
+  }
+}
+
+function clearLocation(){
+  geoState.lat = null; geoState.lon = null;
+  document.getElementById('location-input').value = '';
+  document.getElementById('location-box').classList.remove('ok','error');
+  document.getElementById('location-status').textContent = '';
+  document.getElementById('location-status').classList.remove('err');
+  document.getElementById('location-clear').style.display = 'none';
+  document.getElementById('slider-group').style.display = 'none';
+  setAfstandSort(false);
+}
+
+async function doGeocode(){
+  const q = document.getElementById('location-input').value.trim();
+  if(!q) return;
+  const status = document.getElementById('location-status');
+  const box = document.getElementById('location-box');
+  status.textContent = 'Zoeken…';
+  status.classList.remove('err');
+  box.classList.remove('ok','error');
+  try{
+    const {lat,lon} = await geocodeLocatie(q);
+    geoState.lat = lat; geoState.lon = lon;
+    box.classList.add('ok');
+    status.textContent = '';
+    document.getElementById('location-clear').style.display = '';
+    document.getElementById('slider-group').style.display = '';
+    setAfstandSort(true);
+    state.sort = 'afstand';
+    document.getElementById('sort-select').value = 'afstand';
+    render();
+  }catch(err){
+    geoState.lat = null; geoState.lon = null;
+    box.classList.add('error');
+    status.textContent = err.message;
+    status.classList.add('err');
+    document.getElementById('location-clear').style.display = '';
+    document.getElementById('slider-group').style.display = 'none';
+    render();
+  }
+}
+
+document.getElementById('location-input').addEventListener('keydown', e=>{
+  if(e.key === 'Enter') doGeocode();
+});
+document.getElementById('location-clear').addEventListener('click', ()=>{
+  clearLocation();
+  render();
+});
+document.getElementById('distance-slider').addEventListener('input', e=>{
+  geoState.maxKm = parseInt(e.target.value);
+  document.getElementById('distance-km').textContent = geoState.maxKm + ' km';
+  render();
 });
 
 buildProvincieSelect();
