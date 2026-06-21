@@ -14,6 +14,7 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-192.png">
 
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -448,6 +449,36 @@
   }
   .maps-link:hover{color:#7ecfe8;}
 
+  /* ---------- kaart ---------- */
+  .map-container{
+    height:calc(100vh - 220px);
+    min-height:420px;
+    border-radius:var(--radius);
+    overflow:hidden;
+    margin-top:16px;
+  }
+  .btn.map-toggle-btn{padding:9px 14px;display:inline-flex;align-items:center;gap:6px;}
+  .btn.map-toggle-btn.active{background:var(--moss-deep);border-color:var(--moss);}
+  /* Leaflet popup in app-stijl */
+  .leaflet-popup-content-wrapper{
+    background:var(--surface);
+    color:var(--text);
+    border:1px solid var(--line-strong);
+    border-radius:10px;
+    box-shadow:0 6px 24px rgba(0,0,0,.5);
+  }
+  .leaflet-popup-tip{background:var(--surface);}
+  .leaflet-popup-content{margin:12px 16px;font-family:'Public Sans',sans-serif;font-size:14px;}
+  .leaflet-popup-close-button{color:var(--text-muted) !important;}
+  .leaflet-container{background:var(--ink);}
+  .popup-naam{font-family:'Fraunces',serif;font-weight:600;font-size:17px;margin:0 0 4px;}
+  .popup-sub{font-size:12px;color:var(--text-muted);margin:0 0 10px;}
+  .popup-actions{display:flex;gap:10px;align-items:center;}
+  .popup-route{color:var(--water);font-weight:700;font-size:13px;text-decoration:none;}
+  .popup-route:hover{color:#7ecfe8;}
+  .popup-orig{color:var(--moss);font-weight:600;font-size:13px;text-decoration:none;}
+  .popup-orig:hover{color:#9fc488;}
+
   /* ---------- tabs ---------- */
   .tab-bar-wrap{background:var(--ink);border-bottom:1px solid var(--line);}
   .tab-bar{max-width:1180px;margin:0 auto;padding:0 24px;display:flex;}
@@ -556,6 +587,10 @@
         <option value="naam">Sorteer: naam (A–Z)</option>
         <option value="plaats">Sorteer: plaats (A–Z)</option>
       </select>
+      <button class="btn map-toggle-btn" id="map-toggle-nl" title="Wissel tussen lijst en kaart">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8"/><rect x="13" y="3" width="8" height="8"/><rect x="3" y="13" width="8" height="8"/><rect x="13" y="13" width="8" height="8"/></svg>
+        <span id="map-toggle-nl-label">Kaart</span>
+      </button>
       <div class="chip" id="seizoen-toggle" title="Toont alleen gebieden met zwemwater waar de tekst ook een datum/periode noemt">
         <span>⚠️ Seizoensregel te checken</span>
       </div>
@@ -589,6 +624,7 @@
     <span>Toont <span class="mono" id="result-count">0</span> van <span class="mono" id="total-count">0</span> gebieden</span>
   </div>
   <div class="grid" id="grid"></div>
+  <div id="map-nl" class="map-container" style="display:none"></div>
   <div class="empty" id="empty-state" style="display:none;">
     <h2>Geen gebieden gevonden</h2>
     <p>Probeer een andere zoekterm of zet wat filters uit.</p>
@@ -603,10 +639,15 @@
         <input type="text" id="zwolle-search" placeholder="Zoek op naam of wijk…">
       </div>
       <span class="mono" id="zwolle-count" style="font-size:13px;color:var(--text-muted)"></span>
+      <button class="btn map-toggle-btn" id="map-toggle-zwolle" title="Wissel tussen lijst en kaart">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8"/><rect x="13" y="3" width="8" height="8"/><rect x="3" y="13" width="8" height="8"/><rect x="13" y="13" width="8" height="8"/></svg>
+        <span id="map-toggle-zwolle-label">Kaart</span>
+      </button>
     </div>
   </div>
   <main>
     <div id="zwolle-content"></div>
+    <div id="map-zwolle" class="map-container" style="display:none"></div>
   </main>
 </div>
 
@@ -615,6 +656,7 @@
   Gebruik <code class="mono">scrape_doggydating.py</code> om de volledige (~455) dataset zelf op te halen en hierboven in te laden.
 </footer>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script id="sample-data" type="application/json">
 [{"slug": "spanderswoud-hilversum", "naam": "Spanderswoud", "plaats": "Hilversum", "provincie": "Noord-Holland", "type": "natuurgebied", "kenmerken": ["zwemwater", "wandelroutes", "horeca", "rolstoelvriendelijk", "ruiterpaden"], "lat": 52.248600436667, "lon": 5.1608490943909, "keer_bekeken": 106179, "beschrijving": "Het Spanderswoud (213 ha) wordt ook wel het leukste bos van Nederland genoemd. Dode bomen en takken mogen blijven liggen om als schuilplaats te dienen voor kleine dieren. Hierdoor is het bos volop in beweging. Honden mogen bijna overal het hele jaar loslopen.\n\nOnderweg kom je meerdere beekjes tegen waar de honden even kunnen zwemmen en/of drinken. Ook staan er her en der bankjes om even uit te rusten en van de natuur te genieten.\n\nOp kampeerterrein De Fransche Kamp (in de noordwesthoek van Spanderswoud) zijn honden helaas niet welkom in de periode van april tot oktober. Buiten deze periode zijn honden wel welkom!\n\nEr zijn verschillende wandelroutes, let wel op dat sommige deels door aanlijngebied lopen.\n\nParkeren kan bij restaurant Robert aan de Spanderslaan.\n\nNavigatie adres Spanderslaan 1, 1217 DB Hilversum\n\nAan de westkant van het Spanderswoud vind je Cafetaria Noordereind. Hier kan je terecht voor een ijsje of snack na de wandeling.\n\nNavigatie adres: Noordereinde 101, 1243 JK 's-Graveland\n\nAls je zin hebt in een extra lange wandeling, kan je in het noorden (rechts van de camping) de Franse Kampweg (N236) oversteken voor een honden speelkwartiertje op de Fransche Kampheide.\n\nDoor de verharde paden is het gebied uiterst geschikt voor rolstoelgebruikers.", "links": [{"tekst": "Het Spanderswoud", "url": "https://www.natuurmonumenten.nl/natuurgebieden/spanderswoud", "extern": true}, {"tekst": "wandelroutes", "url": "https://www.natuurmonumenten.nl/routes?locatie=N_1768", "extern": true}, {"tekst": "Cafetaria Noordereind", "url": "https://www.cafetarianoordereind.nl/", "extern": true}, {"tekst": "Fransche Kampheide", "url": "https://www.doggydating.com/hondenlosloopgebied/fransche-kampheide-bussum", "extern": false}], "seizoensregel_check": true, "afbeelding": "https://www.doggydating.com/wp-content/uploads/2026/03/2625.jpg", "url": "https://www.doggydating.com/hondenlosloopgebied/spanderswoud-hilversum/"}, {"slug": "sarphatipark-amsterdam", "naam": "Sarphatipark", "plaats": "Amsterdam", "provincie": "Noord-Holland", "type": "park", "kenmerken": ["zwemwater", "horeca", "rolstoelvriendelijk"], "lat": 52.354503890914, "lon": 4.8961687088013, "keer_bekeken": 10245, "beschrijving": "Het Sarphatipark is een mooi, oud park van 4,5 hectare in het midden van de Amsterdamse woonwijk De Pijp. Honden mogen in het zuidelijke deel van het park loslopen, met uitzondering van het gebied met de sport en speeltoestellen.\n\nZie deze kaart. In het noordelijke deel zijn honden niet toegestaan en in het gehele park geldt een opruimplicht.\n\nHet Sarphatipark is een populaire wandelplek voor menig hondenbezitter in Amsterdam-Zuid. De kans is dan ook groot dat je op je wandeling andere honden tegen komt.\n\nDoor de verharde paden is dit park erg geschikt voor rolstoelgebruikers.\n\nParkeren kan (betaald) langs de randen van het park (adres navigatie: Sarphatipark, Amsterdam). In de directe omgeving van het park vind je veel leuke horecagelegenheden.", "links": [{"tekst": "Sarphatipark", "url": "https://www.amsterdam.nl/toerisme-vrije-tijd/parken/sarphatipark/", "extern": true}, {"tekst": "deze", "url": "https://www.doggydating.com/hondenlosloopgebied-kaart/sarphatipark-amsterdam", "extern": false}], "seizoensregel_check": false, "afbeelding": "https://www.doggydating.com/wp-content/uploads/2026/04/2474.jpg", "url": "https://www.doggydating.com/hondenlosloopgebied/sarphatipark-amsterdam/"}, {"slug": "mookerplas-middelaar", "naam": "Mookerplas", "plaats": "Middelaar", "provincie": "Limburg", "type": "natuurgebied", "kenmerken": ["zwemwater", "horeca"], "lat": 51.735958873823, "lon": 5.9184122085571, "keer_bekeken": 53430, "beschrijving": "Ten zuiden van Nijmegen, tussen Mook, Middelaar en Plasmolen, ligt recreatiegebied Mookerplas. Het gebied bestaat uit een grote plas, strandjes, grasvelden en een groenstrook.\n\nEr is een hondenwandelzone waar honden het hele jaar door los mogen lopen, mits op het pad en onder appel. Deze start bij de botenhelling op het surfstrand en loopt langs driekwart van de plas. Een wandeling heen en weer (want de honden mogen niet op het strand) is 5 km lang, dus een uur wandelen.\n\nDe zone bevindt zich buiten het intensieve dagrecreatieterrein (strand en ligweiden) en is te bereiken via de tweede ingang aan de Pastoorsdijk, bij de botenhelling.\n\nIn de rest van het gebied mogen honden tussen 1 oktober en 1 mei overal loslopen. Een rondje om de plas duurt ruim een uur. Na 1 mei is het gebied met uitzondering van de hondenwandelzone verboden voor honden.\n\nParkeren kan (betaald, hoogseizoen €5,- per dag, laagseizoen van 1 oktober tot 1 mei €3,- per dag) op een van de parkeerplaatsen aan de plas of je kan parkeren bij een van de horecagelegenheden in Plasmolen zelf.", "links": [{"tekst": "Mookerplas", "url": "https://www.leisurelands.nl/recreatiegebieden/mookerplas/", "extern": true}, {"tekst": "hondenwandelzone", "url": "https://www.leisurelands.nl/fileadmin/redactie/Gebiedsfolders/14_Mookerplas.pdf", "extern": true}, {"tekst": "deze", "url": "https://www.doggydating.com/hondenlosloopgebied-kaart/mookerplas-middelaar", "extern": false}, {"tekst": "1 oktober en 1 mei overal loslopen", "url": "http://www.leisurelands.nl/recreatiegebieden/groene-heuvels/informatie/honden/", "extern": true}, {"tekst": "de Pannenkoekenbakker", "url": "http://www.pannekoekenbakker-plasmolen.nl", "extern": true}], "seizoensregel_check": true, "afbeelding": "https://www.doggydating.com/wp-content/uploads/2026/04/7063.jpeg", "url": "https://www.doggydating.com/hondenlosloopgebied/mookerplas-middelaar/"}, {"slug": "strand-van-zandvoort-zandvoort", "naam": "Strand van Zandvoort", "plaats": "Zandvoort", "provincie": "Noord-Holland", "type": "strand", "kenmerken": ["zwemwater", "horeca"], "lat": 52.365911008908, "lon": 4.5232129096985, "keer_bekeken": 63243, "beschrijving": "Tussen 15 april en 1 oktober mogen honden tussen 09:00 en 19:00 uur niet op het strand komen. Na 19:00 uur mogen ze wel op het strand.\n\nTussen 1 oktober en 15 april mogen honden overal loslopen.\n\nNB. De gemeente Zandvoort is voor de tweede maal bezig om een hondenverbod in te stellen voor het strand. Geef de gemeente geen argumenten voor een hondenverbod. Houd je aan de regels en ruim de hondenpoep netjes op!\n\nIn Zandvoort zijn diverse (betaalde) parkeerterreinen zoals parkeerterrein de Zuid aan de Ingenieur Friedhoffplein 15. Bij strandtent Thalassa zijn honden van harte welkom.", "links": [{"tekst": "deze site", "url": "https://www.visitzandvoort.nl/honden-op-het-strand", "extern": true}, {"tekst": "Thalassa", "url": "http://www.thalassa18.nl/", "extern": true}], "seizoensregel_check": true, "afbeelding": "https://www.doggydating.com/wp-content/uploads/2026/04/7134.jpg", "url": "https://www.doggydating.com/hondenlosloopgebied/strand-van-zandvoort-zandvoort/"}, {"slug": "vondelpark-amsterdam", "naam": "Vondelpark", "plaats": "Amsterdam", "provincie": "Noord-Holland", "type": "park", "kenmerken": ["zwemwater", "horeca", "rolstoelvriendelijk"], "lat": 52.361108715618, "lon": 4.8742818832397, "keer_bekeken": 20899, "beschrijving": "Het Vondelpark (47 ha) is het bekendste en drukst bezochte park van Amsterdam. Het park strekt zich uit van de Stadhouderskade tot aan de Amstelveenseweg. Honden mogen hier het hele jaar loslopen. Pas wel op voor de vele fietsers, wandelaars en skaters.\n\nParkeren kan (betaald) aan bijvoorbeeld de Overtoom of aan de Amstelveenseweg. In en rond het park zijn diverse paviljoens en cafe's waar je iets te eten of te drinken kunt kopen.\n\nGroot Melkhuis ligt midden in het park en honden zijn er van harte welkom.\n\n't Blauwe Theehuis is een uniek gebouw, herkenbaar aan zijn ronde vorm en blauw witte kleur. Het heeft een buitenterras met 700 zitplaatsen, één van Europa's grootste terrassen. Als het zonnetje schijnt is het er heerlijk vertoeven en er staan altijd bakjes water voor de honden klaar.\n\nHet Vondelpark is door de verharde paden geheel rolstoelvriendelijk. Ook de meeste terrassen zijn goed te bereiken met de rolstoel.", "links": [{"tekst": "Groot Melkhuis", "url": "http://www.grootmelkhuis.nl/", "extern": true}, {"tekst": "'t Blauwe Theehuis", "url": "https://www.brouwerijhetij.nl/proeflokaal-het-blauwe-theehuis/", "extern": true}, {"tekst": "hier", "url": "https://www.amsterdam.nl/nieuws/achtergrond/vondelpark/", "extern": true}], "seizoensregel_check": false, "afbeelding": "https://www.doggydating.com/wp-content/uploads/2026/04/2379.jpg", "url": "https://www.doggydating.com/hondenlosloopgebied/vondelpark-amsterdam/"}, {"slug": "noorderplantsoen-groningen", "naam": "Noorderplantsoen", "plaats": "Groningen", "provincie": "Groningen", "type": "park", "kenmerken": ["zwemwater", "horeca"], "lat": 53.226706177919, "lon": 6.5591812133789, "keer_bekeken": 16862, "beschrijving": "Het Noorderplantsoen is een flink park midden in de stad Groningen.\n\nEr zijn drie grote losloopvelden, 1 in het Noorden en 2 in het Zuiden.\n\nEen van de losloopgebieden is ingericht als hondenweide waar de honden niet aangelijnd mogen komen. Dit om te voorkomen dat aangelijnde honden zich bedreigd voelen.\n\nNaast de 3 losloopgebieden is er ook nog een loslooproute door het Noorderplantsoen. Deze loopt van de Kerklaan tot aan de Nieuwe Ebbingestraat.\n\nParkeren kan aan de Noorderbinnensingel of in de parkeergarage Boterdiep aan de Langestraat 68.", "links": [{"tekst": "Noorderplantsoen", "url": "https://www.visitgroningen.nl/nl/plekken/stad/noorderplantsoen", "extern": true}, {"tekst": "deze", "url": "https://www.doggydating.com/hondenlosloopgebied-kaart/noorderplantsoen-groningen", "extern": false}], "seizoensregel_check": false, "afbeelding": "https://www.doggydating.com/wp-content/uploads/2026/03/8550.jpg", "url": "https://www.doggydating.com/hondenlosloopgebied/noorderplantsoen-groningen/"}]
 </script>
@@ -837,11 +879,15 @@ function render(){
   buildTypeChips();
   buildKenmerkChips();
   const filtered = sortAreas(DATA.filter(matches));
-  document.getElementById('grid').innerHTML = filtered.map(card).join('');
   document.getElementById('result-count').textContent = filtered.length;
   document.getElementById('total-count').textContent = DATA.length;
   document.getElementById('stat-loaded').textContent = DATA.length;
-  document.getElementById('empty-state').style.display = filtered.length ? 'none' : 'block';
+  if(viewNl === 'map'){
+    updateMapNl(filtered);
+  } else {
+    document.getElementById('grid').innerHTML = filtered.map(card).join('');
+    document.getElementById('empty-state').style.display = filtered.length ? 'none' : 'block';
+  }
 }
 
 document.getElementById('search').addEventListener('input', e=>{
@@ -898,6 +944,111 @@ document.getElementById('file-input').addEventListener('change', e=>{
   reader.readAsText(file);
 });
 
+/* ===== Kaarten ===== */
+let viewNl = 'list', viewZwolle = 'list';
+let mapNl = null, markersNl = null;
+let mapZwolle = null, markersZwolle = null;
+
+const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+const TILE_ATTR = '© <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>';
+
+const markerStyle = { radius:9, fillColor:'#6e8c5e', color:'#3c4f35', weight:2, opacity:1, fillOpacity:0.9 };
+
+function initMapNl(){
+  if(mapNl) return;
+  mapNl = L.map('map-nl').setView([52.3, 5.3], 7);
+  L.tileLayer(TILE_URL, { attribution:TILE_ATTR, maxZoom:18 }).addTo(mapNl);
+  markersNl = L.layerGroup().addTo(mapNl);
+}
+
+function initMapZwolle(){
+  if(mapZwolle) return;
+  mapZwolle = L.map('map-zwolle').setView([52.51, 6.09], 12);
+  L.tileLayer(TILE_URL, { attribution:TILE_ATTR, maxZoom:18 }).addTo(mapZwolle);
+  markersZwolle = L.layerGroup().addTo(mapZwolle);
+}
+
+function popupNl(area){
+  const mapsUrl = area.lat && area.lon
+    ? `https://www.google.com/maps/dir/?api=1&destination=${area.lat},${area.lon}`
+    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([area.naam,area.plaats].filter(Boolean).join(' '))}`;
+  const kenm = (area.kenmerken||[]).map(k=>`<span style="font-size:11px;margin-right:4px;color:var(--text-muted)">${label(k)}</span>`).join('');
+  return `<p class="popup-naam">${escapeHtml(area.naam)}</p>
+    <p class="popup-sub">${escapeHtml([area.plaats,area.provincie].filter(Boolean).join(', '))}${area.type?` · ${label(area.type)}`:''}</p>
+    ${kenm ? `<div style="margin-bottom:8px">${kenm}</div>` : ''}
+    <div class="popup-actions">
+      <a class="popup-route" href="${mapsUrl}" target="_blank" rel="noopener">Route ↗</a>
+      ${area.url?`<a class="popup-orig" href="${area.url}" target="_blank" rel="noopener">Origineel ↗</a>`:''}
+    </div>`;
+}
+
+function popupZwolle(loc){
+  const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lon}`;
+  return `<p class="popup-naam">${escapeHtml(loc.naam)}</p>
+    <p class="popup-sub">${escapeHtml(loc.wijk)} · ${escapeHtml(loc.buurt)}</p>
+    <div class="popup-actions">
+      <a class="popup-route" href="${mapsUrl}" target="_blank" rel="noopener">Route ↗</a>
+    </div>`;
+}
+
+function updateMapNl(filtered){
+  initMapNl();
+  markersNl.clearLayers();
+  const bounds = [];
+  filtered.forEach(area=>{
+    if(!area.lat || !area.lon) return;
+    const m = L.circleMarker([area.lat,area.lon], markerStyle);
+    m.bindPopup(popupNl(area), { maxWidth:260 });
+    markersNl.addLayer(m);
+    bounds.push([area.lat,area.lon]);
+  });
+  if(bounds.length) mapNl.fitBounds(bounds, { padding:[30,30], maxZoom:13 });
+  setTimeout(()=>mapNl.invalidateSize(), 50);
+}
+
+function updateMapZwolle(filtered){
+  initMapZwolle();
+  markersZwolle.clearLayers();
+  filtered.forEach(loc=>{
+    if(!loc.lat || !loc.lon) return;
+    const m = L.circleMarker([loc.lat,loc.lon], markerStyle);
+    m.bindPopup(popupZwolle(loc), { maxWidth:220 });
+    markersZwolle.addLayer(m);
+  });
+  setTimeout(()=>mapZwolle.invalidateSize(), 50);
+}
+
+function setViewNl(mode){
+  viewNl = mode;
+  const showMap = mode === 'map';
+  document.getElementById('grid').style.display = showMap ? 'none' : '';
+  document.getElementById('empty-state').style.display = 'none';
+  document.getElementById('map-nl').style.display = showMap ? '' : 'none';
+  const btn = document.getElementById('map-toggle-nl');
+  btn.classList.toggle('active', showMap);
+  document.getElementById('map-toggle-nl-label').textContent = showMap ? 'Lijst' : 'Kaart';
+}
+
+function setViewZwolle(mode){
+  viewZwolle = mode;
+  const showMap = mode === 'map';
+  document.getElementById('zwolle-content').style.display = showMap ? 'none' : '';
+  document.getElementById('map-zwolle').style.display = showMap ? '' : 'none';
+  const btn = document.getElementById('map-toggle-zwolle');
+  btn.classList.toggle('active', showMap);
+  document.getElementById('map-toggle-zwolle-label').textContent = showMap ? 'Lijst' : 'Kaart';
+}
+
+document.getElementById('map-toggle-nl').addEventListener('click', ()=>{
+  setViewNl(viewNl === 'map' ? 'list' : 'map');
+  render();
+});
+document.getElementById('map-toggle-zwolle').addEventListener('click', ()=>{
+  setViewZwolle(viewZwolle === 'map' ? 'list' : 'map');
+  renderZwolle();
+});
+/* ===== einde Kaarten ===== */
+
 /* ===== Zwolle tab ===== */
 let ZWOLLE_DATA = [];
 let zwolleQuery = '';
@@ -925,6 +1076,11 @@ function renderZwolle(){
   });
 
   document.getElementById('zwolle-count').textContent = filtered.length + ' locaties';
+
+  if(viewZwolle === 'map'){
+    updateMapZwolle(filtered);
+    return;
+  }
 
   const byWijk = {};
   filtered.forEach(loc=>{ (byWijk[loc.wijk]||(byWijk[loc.wijk]=[])).push(loc); });
@@ -962,7 +1118,12 @@ function setTab(tab){
   document.getElementById('view-nl').style.display = isZwolle ? 'none' : '';
   document.getElementById('view-zwolle').style.display = isZwolle ? '' : 'none';
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
-  if(isZwolle) renderZwolle();
+  if(isZwolle){
+    renderZwolle();
+    if(viewZwolle==='map' && mapZwolle) setTimeout(()=>mapZwolle.invalidateSize(), 100);
+  } else {
+    if(viewNl==='map' && mapNl) setTimeout(()=>mapNl.invalidateSize(), 100);
+  }
 }
 
 document.querySelectorAll('.tab-btn').forEach(btn=>{
