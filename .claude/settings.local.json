@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.zwolle.nl)",
+      "WebFetch(domain:data.overheid.nl)",
+      "WebFetch(domain:api.pdok.nl)",
+      "Bash(python3 geocode_zwolle.py)",
+      "Bash(python3 -c ' *)"
+    ]
+  }
+}

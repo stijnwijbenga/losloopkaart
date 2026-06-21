@@ -440,6 +440,60 @@
     white-space:nowrap;
   }
   .source-link:hover{color:var(--ochre);}
+  .maps-link{
+    color:var(--water);
+    text-decoration:none;
+    font-weight:600;
+    white-space:nowrap;
+  }
+  .maps-link:hover{color:#7ecfe8;}
+
+  /* ---------- tabs ---------- */
+  .tab-bar-wrap{background:var(--ink);border-bottom:1px solid var(--line);}
+  .tab-bar{max-width:1180px;margin:0 auto;padding:0 24px;display:flex;}
+  .tab-btn{
+    font-family:'Public Sans',sans-serif;
+    font-size:14px;
+    font-weight:600;
+    padding:14px 20px;
+    background:none;
+    border:none;
+    border-bottom:2px solid transparent;
+    color:var(--text-muted);
+    cursor:pointer;
+    margin-bottom:-1px;
+    transition:color .12s,border-color .12s;
+  }
+  .tab-btn:hover{color:var(--text);}
+  .tab-btn.active{color:var(--text);border-bottom-color:var(--moss);}
+
+  /* ---------- Zwolle tab ---------- */
+  .zwolle-sticky{
+    position:sticky;top:0;z-index:5;
+    background:rgba(18,27,22,0.96);
+    backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);
+    padding:16px 24px;
+  }
+  .zwolle-sticky-inner{max-width:1180px;margin:0 auto;display:flex;gap:10px;align-items:center;}
+  #view-zwolle main{max-width:1180px;margin:0 auto;padding:24px;}
+  .wijk-section{margin-bottom:28px;}
+  .wijk-header{font-family:'Fraunces',serif;font-size:20px;font-weight:600;margin:0 0 10px;}
+  .zwolle-grid{display:flex;flex-direction:column;gap:8px;}
+  .zwolle-card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:12px 16px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    transition:border-color .15s;
+  }
+  .zwolle-card:hover{border-color:var(--line-strong);}
+  .zwolle-card .naam{font-weight:600;font-size:15px;}
+  .zwolle-card .buurt-label{font-size:12px;color:var(--text-muted);margin-top:2px;}
 
   .empty{
     text-align:center;
@@ -480,7 +534,14 @@
   </div>
 </div>
 
-<div class="controls">
+<div class="tab-bar-wrap">
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="nl">Nederland</button>
+    <button class="tab-btn" data-tab="zwolle">Zwolle</button>
+  </div>
+</div>
+
+<div class="controls" id="controls-nl">
   <div class="controls-inner">
     <div class="search-row">
       <div class="search-box">
@@ -523,7 +584,7 @@
   </div>
 </div>
 
-<main>
+<main id="view-nl">
   <div class="results-meta">
     <span>Toont <span class="mono" id="result-count">0</span> van <span class="mono" id="total-count">0</span> gebieden</span>
   </div>
@@ -533,6 +594,21 @@
     <p>Probeer een andere zoekterm of zet wat filters uit.</p>
   </div>
 </main>
+
+<div id="view-zwolle" style="display:none">
+  <div class="zwolle-sticky">
+    <div class="zwolle-sticky-inner">
+      <div class="search-box" style="flex:1 1 240px">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="zwolle-search" placeholder="Zoek op naam of wijk…">
+      </div>
+      <span class="mono" id="zwolle-count" style="font-size:13px;color:var(--text-muted)"></span>
+    </div>
+  </div>
+  <main>
+    <div id="zwolle-content"></div>
+  </main>
+</div>
 
 <footer>
   Data afkomstig van <a href="https://www.doggydating.com/hondenlosloopgebied/" target="_blank" rel="noopener">doggydating.com</a> — eigendom en onderhoud van de losloopgebieden ligt bij de betreffende terreinbeheerders, niet bij DoggyDating of deze tool.
@@ -742,7 +818,15 @@ function card(area){
         ${linksHtml}
         <div class="card-footer">
           <span class="views mono">${area.keer_bekeken ? area.keer_bekeken.toLocaleString('nl-NL')+'× bekeken' : ''}</span>
-          ${area.url?`<a class="source-link" href="${area.url}" target="_blank" rel="noopener">Bekijk origineel ↗</a>`:''}
+          <span style="display:flex;gap:10px;align-items:center;">
+            ${(()=>{
+              const mapsUrl = (area.lat && area.lon)
+                ? `https://www.google.com/maps/dir/?api=1&destination=${area.lat},${area.lon}`
+                : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([area.naam,area.plaats].filter(Boolean).join(' '))}`;
+              return `<a class="maps-link" href="${mapsUrl}" target="_blank" rel="noopener">Route ↗</a>`;
+            })()}
+            ${area.url?`<a class="source-link" href="${area.url}" target="_blank" rel="noopener">Origineel ↗</a>`:''}
+          </span>
         </div>
         ${noteHtml}
       </div>
@@ -813,6 +897,82 @@ document.getElementById('file-input').addEventListener('change', e=>{
   };
   reader.readAsText(file);
 });
+
+/* ===== Zwolle tab ===== */
+let ZWOLLE_DATA = [];
+let zwolleQuery = '';
+
+async function loadZwolleData(){
+  try{
+    const resp = await fetch('./zwolle_honden.json', { cache:'no-store' });
+    if(!resp.ok) throw new Error();
+    ZWOLLE_DATA = await resp.json();
+  }catch{ ZWOLLE_DATA = []; }
+}
+
+function renderZwolle(){
+  const q = zwolleQuery.toLowerCase();
+  const filtered = ZWOLLE_DATA.filter(loc=>{
+    if(geoState.lat !== null){
+      if(!loc.lat || !loc.lon) return false;
+      if(haversine(geoState.lat,geoState.lon,loc.lat,loc.lon) > geoState.maxKm) return false;
+    }
+    if(q){
+      const hay = [loc.naam,loc.buurt,loc.wijk].join(' ').toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  document.getElementById('zwolle-count').textContent = filtered.length + ' locaties';
+
+  const byWijk = {};
+  filtered.forEach(loc=>{ (byWijk[loc.wijk]||(byWijk[loc.wijk]=[])).push(loc); });
+
+  const container = document.getElementById('zwolle-content');
+  if(!filtered.length){
+    container.innerHTML = '<div class="empty"><h2>Geen locaties gevonden</h2><p>Probeer een andere zoekterm of vergroot de afstand.</p></div>';
+    return;
+  }
+
+  container.innerHTML = Object.entries(byWijk).sort((a,b)=>a[0].localeCompare(b[0],'nl')).map(([wijk,locs])=>`
+    <div class="wijk-section">
+      <h2 class="wijk-header">${escapeHtml(wijk)}</h2>
+      <div class="zwolle-grid">
+        ${locs.map(loc=>{
+          const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lon}`;
+          const distText = geoState.lat!==null && loc.lat && loc.lon
+            ? ` · <span class="dist-badge">${Math.round(haversine(geoState.lat,geoState.lon,loc.lat,loc.lon))} km</span>`
+            : '';
+          return `<div class="zwolle-card">
+            <div>
+              <div class="naam">${escapeHtml(loc.naam)}</div>
+              <div class="buurt-label">${escapeHtml(loc.buurt)}${distText}</div>
+            </div>
+            <a class="maps-link" href="${mapsUrl}" target="_blank" rel="noopener">Route ↗</a>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function setTab(tab){
+  const isZwolle = tab === 'zwolle';
+  document.getElementById('controls-nl').style.display = isZwolle ? 'none' : '';
+  document.getElementById('view-nl').style.display = isZwolle ? 'none' : '';
+  document.getElementById('view-zwolle').style.display = isZwolle ? '' : 'none';
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  if(isZwolle) renderZwolle();
+}
+
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>setTab(btn.dataset.tab));
+});
+document.getElementById('zwolle-search').addEventListener('input', e=>{
+  zwolleQuery = e.target.value;
+  renderZwolle();
+});
+/* ===== einde Zwolle tab ===== */
 
 function setAfstandSort(active){
   const sel = document.getElementById('sort-select');
@@ -885,6 +1045,7 @@ document.getElementById('distance-slider').addEventListener('input', e=>{
 buildProvincieSelect();
 render();
 loadOwnData();
+loadZwolleData();
 
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
