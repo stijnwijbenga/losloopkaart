@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Losloopkaart</title>
+
+<!-- iPhone / "Add to Home Screen" -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#16221b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Losloopkaart">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#121b16;
+    --surface:#1c2922;
+    --surface-2:#25342b;
+    --text:#ece6d2;
+    --text-muted:#93a48a;
+    --moss:#6e8c5e;
+    --moss-deep:#3c4f35;
+    --water:#4fa8c9;
+    --water-deep:#1f3b45;
+    --rust:#c4683a;
+    --ochre:#d9a441;
+    --line:rgba(236,230,210,0.12);
+    --line-strong:rgba(236,230,210,0.22);
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--ink);
+    color:var(--text);
+    font-family:'Public Sans',sans-serif;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    padding-left:env(safe-area-inset-left);
+    padding-right:env(safe-area-inset-right);
+  }
+  a{color:inherit;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+
+  /* ---------- hero ---------- */
+  .hero{
+    position:relative;
+    overflow:hidden;
+    padding:48px 24px 32px;
+    border-bottom:1px solid var(--line);
+    background:
+      repeating-radial-gradient(circle at 12% 25%, transparent 0 26px, rgba(110,140,94,0.07) 27px, transparent 28px, transparent 54px),
+      repeating-radial-gradient(circle at 88% 70%, transparent 0 34px, rgba(79,168,201,0.06) 35px, transparent 36px, transparent 68px),
+      var(--ink);
+  }
+  .hero-inner{max-width:1180px;margin:0 auto;}
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--moss);
+    margin:0 0 10px;
+  }
+  h1{
+    font-family:'Fraunces',serif;
+    font-optical-sizing:auto;
+    font-weight:600;
+    font-size:clamp(32px,5vw,52px);
+    margin:0 0 8px;
+    letter-spacing:-0.01em;
+  }
+  .hero p.sub{
+    color:var(--text-muted);
+    max-width:560px;
+    margin:0 0 24px;
+    font-size:15px;
+  }
+  .hero-stats{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    align-items:center;
+  }
+  .stat-pill{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:13px;
+    border:1px solid var(--line-strong);
+    border-radius:999px;
+    padding:7px 14px;
+    color:var(--text);
+    background:rgba(236,230,210,0.03);
+  }
+  .stat-pill.ok{border-color:rgba(110,140,94,0.5);color:#bcd6ae;}
+  .stat-pill.demo{border-color:rgba(217,164,65,0.5);color:var(--ochre);}
+  .btn{
+    font-family:'Public Sans',sans-serif;
+    font-weight:600;
+    font-size:13px;
+    border-radius:999px;
+    padding:9px 16px;
+    border:1px solid var(--line-strong);
+    background:transparent;
+    color:var(--text);
+    cursor:pointer;
+    transition:border-color .15s ease, background .15s ease;
+  }
+  .btn:hover{border-color:var(--moss);background:rgba(110,140,94,0.08);}
+  .btn:focus-visible, .chip:focus-visible, input:focus-visible, select:focus-visible{
+    outline:2px solid var(--ochre);
+    outline-offset:2px;
+  }
+  .btn.primary{background:var(--moss-deep);border-color:var(--moss);}
+  .btn.primary:hover{background:var(--moss);}
+  input[type=file]{display:none;}
+
+  /* ---------- controls ---------- */
+  .controls{
+    position:sticky;
+    top:0;
+    z-index:5;
+    background:rgba(18,27,22,0.96);
+    backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);
+    padding:16px 24px;
+  }
+  .controls-inner{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:12px;}
+  .search-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  .search-box{
+    flex:1 1 240px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:10px 14px;
+  }
+  .search-box svg{flex:none;opacity:.6;}
+  .search-box input{
+    background:transparent;
+    border:none;
+    outline:none;
+    color:var(--text);
+    font-family:'Public Sans',sans-serif;
+    font-size:14px;
+    width:100%;
+  }
+  .search-box input::placeholder{color:var(--text-muted);}
+  select{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    color:var(--text);
+    padding:10px 12px;
+    font-family:'Public Sans',sans-serif;
+    font-size:13px;
+  }
+  .chip-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+  .chip-row .label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--text-muted);
+    margin-right:4px;
+  }
+  .chip{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    border:1px solid var(--line-strong);
+    background:var(--surface);
+    color:var(--text);
+    border-radius:8px;
+    padding:7px 12px 7px 10px;
+    font-size:13px;
+    font-weight:500;
+    cursor:pointer;
+    user-select:none;
+    transition:all .12s ease;
+  }
+  .chip svg{flex:none;}
+  .chip:hover{border-color:var(--moss);}
+  .chip.active{
+    background:var(--moss-deep);
+    border-color:var(--moss);
+    color:#fff;
+  }
+  .chip.water{border-color:rgba(79,168,201,0.35);}
+  .chip.water:hover{border-color:var(--water);}
+  .chip.water.active{
+    background:var(--water-deep);
+    border-color:var(--water);
+    color:#dff3fa;
+  }
+
+  /* ---------- results ---------- */
+  main{max-width:1180px;margin:0 auto;padding:24px;}
+  .results-meta{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    margin-bottom:16px;
+    color:var(--text-muted);
+    font-size:13px;
+  }
+  .results-meta .mono{color:var(--text);}
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+    gap:18px;
+  }
+  .card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+    transition:border-color .15s ease, transform .15s ease;
+  }
+  .card:hover{border-color:var(--line-strong);transform:translateY(-2px);}
+  .card .thumb{
+    aspect-ratio:4/3;
+    width:100%;
+    object-fit:cover;
+    background:var(--surface-2);
+    display:block;
+  }
+  .card .body{padding:16px;display:flex;flex-direction:column;gap:8px;flex:1;}
+  .card h3{
+    font-family:'Fraunces',serif;
+    font-weight:600;
+    font-size:19px;
+    margin:0;
+    letter-spacing:-0.005em;
+  }
+  .card .plaats{
+    font-size:13px;
+    color:var(--text-muted);
+    margin:0;
+  }
+  .type-pill{
+    display:inline-block;
+    align-self:flex-start;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    color:var(--ochre);
+    border:1px solid rgba(217,164,65,0.35);
+    border-radius:6px;
+    padding:3px 8px;
+  }
+  .kenmerken-row{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 0;}
+  .badge{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    font-size:11px;
+    border-radius:6px;
+    padding:4px 7px;
+    background:var(--surface-2);
+    color:var(--text-muted);
+    border:1px solid var(--line);
+  }
+  .badge.water{
+    background:var(--water-deep);
+    color:#bfe7f3;
+    border-color:rgba(79,168,201,0.4);
+  }
+  .desc{
+    font-size:13.5px;
+    color:var(--text-muted);
+    margin:0;
+  }
+  details.more{margin:-4px 0 0;}
+  details.more summary{
+    font-size:12.5px;
+    font-weight:600;
+    color:var(--moss);
+    cursor:pointer;
+    list-style:none;
+    margin-top:2px;
+  }
+  details.more summary::-webkit-details-marker{display:none;}
+  details.more summary:hover{color:var(--ochre);}
+  details.more p{font-size:13.5px;color:var(--text-muted);margin:8px 0 0;white-space:pre-line;}
+
+  .seizoen-badge{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    font-size:11px;
+    font-weight:600;
+    border-radius:6px;
+    padding:5px 8px;
+    background:rgba(196,104,58,0.15);
+    color:#e7a079;
+    border:1px solid rgba(196,104,58,0.4);
+    align-self:flex-start;
+  }
+
+  .links-row{display:flex;flex-wrap:wrap;gap:6px;}
+  .link-pill{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    font-size:11.5px;
+    font-weight:600;
+    border-radius:6px;
+    padding:5px 9px;
+    text-decoration:none;
+    border:1px solid var(--line-strong);
+  }
+  .link-pill.extern{color:var(--moss);background:rgba(110,140,94,0.08);}
+  .link-pill.extern:hover{border-color:var(--moss);color:#9fc488;}
+  .link-pill.intern{color:var(--text-muted);background:transparent;}
+  .link-pill.intern:hover{border-color:var(--line-strong);}
+
+  .note-block{border-top:1px solid var(--line);padding-top:10px;}
+  .note-block summary{
+    font-size:12px;
+    color:var(--text-muted);
+    cursor:pointer;
+    list-style:none;
+  }
+  .note-block summary::-webkit-details-marker{display:none;}
+  .note-block summary:hover{color:var(--text);}
+  .note-block[open] summary{color:var(--ochre);}
+  .note-textarea{
+    width:100%;
+    margin-top:8px;
+    background:var(--surface-2);
+    border:1px solid var(--line-strong);
+    border-radius:8px;
+    color:var(--text);
+    font-family:'Public Sans',sans-serif;
+    font-size:13px;
+    padding:9px 10px;
+    resize:vertical;
+    min-height:50px;
+  }
+  .note-textarea::placeholder{color:var(--text-muted);}
+  .card-footer{
+    margin-top:auto;
+    padding-top:10px;
+    border-top:1px solid var(--line);
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-size:12px;
+  }
+  .views{color:var(--text-muted);}
+  .source-link{
+    color:var(--moss);
+    text-decoration:none;
+    font-weight:600;
+    white-space:nowrap;
+  }
+  .source-link:hover{color:var(--ochre);}
+
+  .empty{
+    text-align:center;
+    padding:80px 20px;
+    color:var(--text-muted);
+  }
+  .empty h2{font-family:'Fraunces',serif;color:var(--text);font-weight:600;margin-bottom:8px;}
+
+  footer{
+    max-width:1180px;
+    margin:0 auto;
+    padding:24px 24px calc(60px + env(safe-area-inset-bottom));
+    color:var(--text-muted);
+    font-size:12px;
+    border-top:1px solid var(--line);
+  }
+  footer a{color:var(--moss);}
+
+  @media (prefers-reduced-motion: reduce){
+    .card{transition:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-inner">
+    <p class="eyebrow">Eigen app · eenmalig gescraped · onafhankelijk van doggydating.com</p>
+    <h1>Losloopkaart</h1>
+    <p class="sub">Snel filteren op losloopgebied, zwemwater en waar je hond écht het water in kan. Eigen data, eigen app — werkt ook offline en op je beginscherm.</p>
+    <div class="hero-stats">
+      <span class="stat-pill"><span class="mono" id="stat-loaded">…</span> gebieden geladen</span>
+      <span class="stat-pill" id="data-source-pill">data laden…</span>
+      <button class="btn" id="load-btn">Ander JSON-bestand laden</button>
+      <input type="file" id="file-input" accept="application/json">
+      <button class="btn" id="reset-btn">Wis filters</button>
+    </div>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="controls-inner">
+    <div class="search-row">
+      <div class="search-box">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="search" placeholder="Zoek op naam, plaats of beschrijving…">
+      </div>
+      <select id="provincie-select">
+        <option value="">Alle provincies</option>
+      </select>
+      <select id="sort-select">
+        <option value="populariteit">Sorteer: populariteit</option>
+        <option value="naam">Sorteer: naam (A–Z)</option>
+        <option value="plaats">Sorteer: plaats (A–Z)</option>
+      </select>
+      <div class="chip" id="seizoen-toggle" title="Toont alleen gebieden met zwemwater waar de tekst ook een datum/periode noemt">
+        <span>⚠️ Seizoensregel te checken</span>
+      </div>
+    </div>
+    <div class="chip-row" id="type-chips">
+      <span class="label">Type</span>
+      <!-- gevuld via JS -->
+    </div>
+    <div class="chip-row" id="kenmerk-chips">
+      <span class="label">Kenmerken</span>
+      <!-- gevuld via JS, zwemwater altijd vooraan + blauw -->
+    </div>
+  </div>
+</div>
+
+<main>
+  <div class="results-meta">
+    <span>Toont <span class="mono" id="result-count">0</span> van <span class="mono" id="total-count">0</span> gebieden</span>
+  </div>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty-state" style="display:none;">
+    <h2>Geen gebieden gevonden</h2>
+    <p>Probeer een andere zoekterm of zet wat filters uit.</p>
+  </div>
+</main>
+
+<footer>
+  Data afkomstig van <a href="https://www.doggydating.com/hondenlosloopgebied/" target="_blank" rel="noopener">doggydating.com</a> — eigendom en onderhoud van de losloopgebieden ligt bij de betreffende terreinbeheerders, niet bij DoggyDating of deze tool.
+  Gebruik <code class="mono">scrape_doggydating.py</code> om de volledige (~455) dataset zelf op te halen en hierboven in te laden.
+</footer>
+
+<script id="sample-data" type="application/json">
+[{"slug": "spanderswoud-hilversum", "naam": "Spanderswoud", "plaats": "Hilversum", "provincie": "Noord-Holland", "type": "natuurgebied", "kenmerken": ["zwemwater", "wandelroutes", "horeca", "rolstoelvriendelijk", "ruiterpaden"], "lat": 52.248600436667, "lon": 5.1608490943909, "keer_bekeken": 106179, "beschrijving": "Het Spanderswoud (213 ha) wordt ook wel het leukste bos van Nederland genoemd. Dode bomen en takken mogen blijven liggen om als schuilplaats te dienen voor kleine dieren. Hierdoor is het bos volop in beweging. Honden mogen bijna overal het hele jaar loslopen.\n\nOnderweg kom je meerdere beekjes tegen waar de honden even kunnen zwemmen en/of drinken. Ook staan er her en der bankjes om even uit te rusten en van de natuur te genieten.\n\nOp kampeerterrein De Fransche Kamp (in de noordwesthoek van Spanderswoud) zijn honden helaas niet welkom in de periode van april tot oktober. Buiten deze periode zijn honden wel welkom!\n\nEr zijn verschillende wandelroutes, let wel op dat sommige deels door aanlijngebied lopen.\n\nParkeren kan bij restaurant Robert aan de Spanderslaan.\n\nNavigatie adres Spanderslaan 1, 1217 DB Hilversum\n\nAan de westkant van het Spanderswoud vind je Cafetaria Noordereind. Hier kan je terecht voor een ijsje of snack na de wandeling.\n\nNavigatie adres: Noordereinde 101, 1243 JK 's-Graveland\n\nAls je zin hebt in een extra lange wandeling, kan je in het noorden (rechts van de camping) de Franse Kampweg (N236) oversteken voor een honden speelkwartiertje op de Fransche Kampheide.\n\nDoor de verharde paden is het gebied uiterst geschikt voor rolstoelgebruikers.", "links": [{"tekst": "Het Spanderswoud", "url": "https://www.natuurmonumenten.nl/natuurgebieden/spanderswoud", "extern": true}, {"tekst": "wandelroutes", "url": "https://www.natuurmonumenten.nl/routes?locatie=N_1768", "extern": true}, {"tekst": "Cafetaria Noordereind", "url": "https://www.cafetarianoordereind.nl/", "extern": true}, {"tekst": "Fransche Kampheide", "url": "https://www.doggydating.com/hondenlosloopgebied/fransche-kampheide-bussum", "extern": false}], "seizoensregel_check": true, "afbeelding": "https://www.doggydating.com/wp-content/uploads/2026/03/2625.jpg", "url": "https://www.doggydating.com/hondenlosloopgebied/spanderswoud-hilversum/"}, {"slug": "sarphatipark-amsterdam", "naam": "Sarphatipark", "plaats": "Amsterdam", "provincie": "Noord-Holland", "type": "park", "kenmerken": ["zwemwater", "horeca", "rolstoelvriendelijk"], "lat": 52.354503890914, "lon": 4.8961687088013, "keer_bekeken": 10245, "beschrijving": "Het Sarphatipark is een mooi, oud park van 4,5 hectare in het midden van de Amsterdamse woonwijk De Pijp. Honden mogen in het zuidelijke deel van het park loslopen, met uitzondering van het gebied met de sport en speeltoestellen.\n\nZie deze kaart. In het noordelijke deel zijn honden niet toegestaan en in het gehele park geldt een opruimplicht.\n\nHet Sarphatipark is een populaire wandelplek voor menig hondenbezitter in Amsterdam-Zuid. De kans is dan ook groot dat je op je wandeling andere honden tegen komt.\n\nDoor de verharde paden is dit park erg geschikt voor rolstoelgebruikers.\n\nParkeren kan (betaald) langs de randen van het park (adres navigatie: Sarphatipark, Amsterdam). In de directe omgeving van het park vind je veel leuke horecagelegenheden.", "links": [{"tekst": "Sarphatipark", "url": "https://www.amsterdam.nl/toerisme-vrije-tijd/parken/sarphatipark/", "extern": true}, {"tekst": "deze", "url": "https://www.doggydating.com/hondenlosloopgebied-kaart/sarphatipark-amsterdam", "extern": false}], "seizoensregel_check": false, "afbeelding": "https://www.doggydating.com/wp-content/uploads/2026/04/2474.jpg", "url": "https://www.doggydating.com/hondenlosloopgebied/sarphatipark-amsterdam/"}, {"slug": "mookerplas-middelaar", "naam": "Mookerplas", "plaats": "Middelaar", "provincie": "Limburg", "type": "natuurgebied", "kenmerken": ["zwemwater", "horeca"], "lat": 51.735958873823, "lon": 5.9184122085571, "keer_bekeken": 53430, "beschrijving": "Ten zuiden van Nijmegen, tussen Mook, Middelaar en Plasmolen, ligt recreatiegebied Mookerplas. Het gebied bestaat uit een grote plas, strandjes, grasvelden en een groenstrook.\n\nEr is een hondenwandelzone waar honden het hele jaar door los mogen lopen, mits op het pad en onder appel. Deze start bij de botenhelling op het surfstrand en loopt langs driekwart van de plas. Een wandeling heen en weer (want de honden mogen niet op het strand) is 5 km lang, dus een uur wandelen.\n\nDe zone bevindt zich buiten het intensieve dagrecreatieterrein (strand en ligweiden) en is te bereiken via de tweede ingang aan de Pastoorsdijk, bij de botenhelling.\n\nIn de rest van het gebied mogen honden tussen 1 oktober en 1 mei overal loslopen. Een rondje om de plas duurt ruim een uur. Na 1 mei is het gebied met uitzondering van de hondenwandelzone verboden voor honden.\n\nParkeren kan (betaald, hoogseizoen €5,- per dag, laagseizoen van 1 oktober tot 1 mei €3,- per dag) op een van de parkeerplaatsen aan de plas of je kan parkeren bij een van de horecagelegenheden in Plasmolen zelf.", "links": [{"tekst": "Mookerplas", "url": "https://www.leisurelands.nl/recreatiegebieden/mookerplas/", "extern": true}, {"tekst": "hondenwandelzone", "url": "https://www.leisurelands.nl/fileadmin/redactie/Gebiedsfolders/14_Mookerplas.pdf", "extern": true}, {"tekst": "deze", "url": "https://www.doggydating.com/hondenlosloopgebied-kaart/mookerplas-middelaar", "extern": false}, {"tekst": "1 oktober en 1 mei overal loslopen", "url": "http://www.leisurelands.nl/recreatiegebieden/groene-heuvels/informatie/honden/", "extern": true}, {"tekst": "de Pannenkoekenbakker", "url": "http://www.pannekoekenbakker-plasmolen.nl", "extern": true}], "seizoensregel_check": true, "afbeelding": "https://www.doggydating.com/wp-content/uploads/2026/04/7063.jpeg", "url": "https://www.doggydating.com/hondenlosloopgebied/mookerplas-middelaar/"}, {"slug": "strand-van-zandvoort-zandvoort", "naam": "Strand van Zandvoort", "plaats": "Zandvoort", "provincie": "Noord-Holland", "type": "strand", "kenmerken": ["zwemwater", "horeca"], "lat": 52.365911008908, "lon": 4.5232129096985, "keer_bekeken": 63243, "beschrijving": "Tussen 15 april en 1 oktober mogen honden tussen 09:00 en 19:00 uur niet op het strand komen. Na 19:00 uur mogen ze wel op het strand.\n\nTussen 1 oktober en 15 april mogen honden overal loslopen.\n\nNB. De gemeente Zandvoort is voor de tweede maal bezig om een hondenverbod in te stellen voor het strand. Geef de gemeente geen argumenten voor een hondenverbod. Houd je aan de regels en ruim de hondenpoep netjes op!\n\nIn Zandvoort zijn diverse (betaalde) parkeerterreinen zoals parkeerterrein de Zuid aan de Ingenieur Friedhoffplein 15. Bij strandtent Thalassa zijn honden van harte welkom.", "links": [{"tekst": "deze site", "url": "https://www.visitzandvoort.nl/honden-op-het-strand", "extern": true}, {"tekst": "Thalassa", "url": "http://www.thalassa18.nl/", "extern": true}], "seizoensregel_check": true, "afbeelding": "https://www.doggydating.com/wp-content/uploads/2026/04/7134.jpg", "url": "https://www.doggydating.com/hondenlosloopgebied/strand-van-zandvoort-zandvoort/"}, {"slug": "vondelpark-amsterdam", "naam": "Vondelpark", "plaats": "Amsterdam", "provincie": "Noord-Holland", "type": "park", "kenmerken": ["zwemwater", "horeca", "rolstoelvriendelijk"], "lat": 52.361108715618, "lon": 4.8742818832397, "keer_bekeken": 20899, "beschrijving": "Het Vondelpark (47 ha) is het bekendste en drukst bezochte park van Amsterdam. Het park strekt zich uit van de Stadhouderskade tot aan de Amstelveenseweg. Honden mogen hier het hele jaar loslopen. Pas wel op voor de vele fietsers, wandelaars en skaters.\n\nParkeren kan (betaald) aan bijvoorbeeld de Overtoom of aan de Amstelveenseweg. In en rond het park zijn diverse paviljoens en cafe's waar je iets te eten of te drinken kunt kopen.\n\nGroot Melkhuis ligt midden in het park en honden zijn er van harte welkom.\n\n't Blauwe Theehuis is een uniek gebouw, herkenbaar aan zijn ronde vorm en blauw witte kleur. Het heeft een buitenterras met 700 zitplaatsen, één van Europa's grootste terrassen. Als het zonnetje schijnt is het er heerlijk vertoeven en er staan altijd bakjes water voor de honden klaar.\n\nHet Vondelpark is door de verharde paden geheel rolstoelvriendelijk. Ook de meeste terrassen zijn goed te bereiken met de rolstoel.", "links": [{"tekst": "Groot Melkhuis", "url": "http://www.grootmelkhuis.nl/", "extern": true}, {"tekst": "'t Blauwe Theehuis", "url": "https://www.brouwerijhetij.nl/proeflokaal-het-blauwe-theehuis/", "extern": true}, {"tekst": "hier", "url": "https://www.amsterdam.nl/nieuws/achtergrond/vondelpark/", "extern": true}], "seizoensregel_check": false, "afbeelding": "https://www.doggydating.com/wp-content/uploads/2026/04/2379.jpg", "url": "https://www.doggydating.com/hondenlosloopgebied/vondelpark-amsterdam/"}, {"slug": "noorderplantsoen-groningen", "naam": "Noorderplantsoen", "plaats": "Groningen", "provincie": "Groningen", "type": "park", "kenmerken": ["zwemwater", "horeca"], "lat": 53.226706177919, "lon": 6.5591812133789, "keer_bekeken": 16862, "beschrijving": "Het Noorderplantsoen is een flink park midden in de stad Groningen.\n\nEr zijn drie grote losloopvelden, 1 in het Noorden en 2 in het Zuiden.\n\nEen van de losloopgebieden is ingericht als hondenweide waar de honden niet aangelijnd mogen komen. Dit om te voorkomen dat aangelijnde honden zich bedreigd voelen.\n\nNaast de 3 losloopgebieden is er ook nog een loslooproute door het Noorderplantsoen. Deze loopt van de Kerklaan tot aan de Nieuwe Ebbingestraat.\n\nParkeren kan aan de Noorderbinnensingel of in de parkeergarage Boterdiep aan de Langestraat 68.", "links": [{"tekst": "Noorderplantsoen", "url": "https://www.visitgroningen.nl/nl/plekken/stad/noorderplantsoen", "extern": true}, {"tekst": "deze", "url": "https://www.doggydating.com/hondenlosloopgebied-kaart/noorderplantsoen-groningen", "extern": false}], "seizoensregel_check": false, "afbeelding": "https://www.doggydating.com/wp-content/uploads/2026/03/8550.jpg", "url": "https://www.doggydating.com/hondenlosloopgebied/noorderplantsoen-groningen/"}]
+</script>
+
+<script>
+const ICONS = {
+  natuurgebied: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 L19 14 H5 Z"/><path d="M12 22 V14"/></svg>',
+  park: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="9" r="6"/><path d="M12 15 V22"/></svg>',
+  strand: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 19 Q12 13 21 19"/><circle cx="17" cy="6" r="3"/></svg>',
+  hondenspeeltuin: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 9 L15 15 M15 9 L9 15"/></svg>',
+  zwemwater: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 16q2.5-3 5-0t5-0 5-0 5-0"/><path d="M2 20q2.5-3 5-0t5-0 5-0 5-0"/></svg>',
+  horeca: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3v8a3 3 0 0 0 6 0V3M8 11v10M16 3v18M16 3a4 4 0 0 1 4 4v3h-4"/></svg>',
+  omheining: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21V8l4-4 4 4v13M12 21V8l4-4 4 4v13M2 13h20"/></svg>',
+  wandelroutes: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><path d="M5 8c0 6 14 2 14 8" stroke-dasharray="2 3"/></svg>',
+  rolstoelvriendelijk: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="17" r="4"/><circle cx="17" cy="5" r="1.5" fill="currentColor"/><path d="M9 17 L11 8 H16 M11 11 H17 L19 17"/></svg>',
+  ruiterpaden: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20c2-6 3-9 7-9s4 4 7 9M9 11V5a2 2 0 0 1 4 0v2"/></svg>',
+  mtb: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="17" r="3.5"/><circle cx="18" cy="17" r="3.5"/><path d="M6 17 L11 7 H15 M9 17 H18 L14 9"/></svg>'
+};
+const LABELS = {
+  natuurgebied:'Natuurgebied', park:'Park', strand:'Strand', hondenspeeltuin:'Hondenspeeltuin',
+  zwemwater:'Zwemwater', horeca:'Horeca', omheining:'Omheining', wandelroutes:'Wandelroutes',
+  rolstoelvriendelijk:'Rolstoelvriendelijk', ruiterpaden:'Ruiterpaden', mtb:'MTB-routes'
+};
+const ALL_TYPES = ['natuurgebied','park','strand','hondenspeeltuin'];
+const ALL_KENMERKEN = ['zwemwater','wandelroutes','horeca','rolstoelvriendelijk','omheining','ruiterpaden','mtb'];
+
+let DATA = JSON.parse(document.getElementById('sample-data').textContent);
+let state = { query:'', type:null, kenmerken:new Set(), provincie:'', sort:'populariteit', seizoenOnly:false };
+
+function noteKey(slug){ return 'losloopkaart:notitie:' + slug; }
+function getNote(slug){
+  try{ return localStorage.getItem(noteKey(slug)) || ''; }catch(e){ return ''; }
+}
+function setNote(slug, value){
+  try{ value ? localStorage.setItem(noteKey(slug), value) : localStorage.removeItem(noteKey(slug)); }catch(e){}
+}
+
+function setSourcePill(kind, text){
+  const pill = document.getElementById('data-source-pill');
+  pill.className = 'stat-pill ' + kind;
+  pill.textContent = text;
+}
+
+async function loadOwnData(){
+  try{
+    const resp = await fetch('./losloopgebieden.json', { cache: 'no-store' });
+    if(!resp.ok) throw new Error('niet gevonden');
+    const parsed = await resp.json();
+    if(!Array.isArray(parsed) || parsed.length === 0) throw new Error('leeg bestand');
+    DATA = parsed;
+    setSourcePill('ok', 'eigen data ✓');
+  }catch(err){
+    setSourcePill('demo', 'voorbeelddata — voeg losloopgebieden.json toe');
+  }
+  buildProvincieSelect();
+  render();
+}
+
+function icon(key){ return ICONS[key] || ''; }
+function label(key){ return LABELS[key] || key; }
+
+function buildTypeChips(){
+  const el = document.getElementById('type-chips');
+  el.innerHTML = '<span class="label">Type</span>';
+  ALL_TYPES.forEach(t=>{
+    const chip = document.createElement('div');
+    chip.className = 'chip' + (state.type===t ? ' active':'');
+    chip.innerHTML = icon(t) + '<span>'+label(t)+'</span>';
+    chip.onclick = ()=>{ state.type = state.type===t ? null : t; render(); };
+    el.appendChild(chip);
+  });
+}
+
+function buildKenmerkChips(){
+  const el = document.getElementById('kenmerk-chips');
+  el.innerHTML = '<span class="label">Kenmerken</span>';
+  ALL_KENMERKEN.forEach(k=>{
+    const chip = document.createElement('div');
+    const isWater = k === 'zwemwater';
+    chip.className = 'chip' + (isWater ? ' water':'') + (state.kenmerken.has(k) ? ' active':'');
+    chip.innerHTML = icon(k) + '<span>'+label(k)+'</span>';
+    chip.onclick = ()=>{
+      state.kenmerken.has(k) ? state.kenmerken.delete(k) : state.kenmerken.add(k);
+      render();
+    };
+    el.appendChild(chip);
+  });
+}
+
+function buildProvincieSelect(){
+  const sel = document.getElementById('provincie-select');
+  const provincies = [...new Set(DATA.map(d=>d.provincie).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">Alle provincies</option>' +
+    provincies.map(p=>`<option value="${p}">${p}</option>`).join('');
+  sel.value = state.provincie;
+}
+
+function matches(area){
+  if(state.type && area.type !== state.type) return false;
+  if(state.provincie && area.provincie !== state.provincie) return false;
+  if(state.seizoenOnly && !area.seizoensregel_check) return false;
+  for(const k of state.kenmerken){
+    if(!area.kenmerken || !area.kenmerken.includes(k)) return false;
+  }
+  if(state.query){
+    const q = state.query.toLowerCase();
+    const hay = [area.naam, area.plaats, area.beschrijving].filter(Boolean).join(' ').toLowerCase();
+    if(!hay.includes(q)) return false;
+  }
+  return true;
+}
+
+function sortAreas(list){
+  const copy = [...list];
+  if(state.sort === 'naam') copy.sort((a,b)=> (a.naam||'').localeCompare(b.naam||'','nl'));
+  else if(state.sort === 'plaats') copy.sort((a,b)=> (a.plaats||'').localeCompare(b.plaats||'','nl'));
+  else copy.sort((a,b)=> (b.keer_bekeken||0) - (a.keer_bekeken||0));
+  return copy;
+}
+
+function escapeHtml(str){
+  return (str||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function card(area){
+  const kenmerkenBadges = (area.kenmerken||[]).map(k=>
+    `<span class="badge ${k==='zwemwater'?'water':''}">${icon(k)}${label(k)}</span>`
+  ).join('');
+  const typeLabel = area.type ? label(area.type) : '';
+
+  // beschrijving: eerste alinea altijd zichtbaar, de rest achter "lees meer"
+  const paragraphs = (area.beschrijving||'').split(/\n{2,}/).filter(Boolean);
+  const eerste = paragraphs[0] || '';
+  const rest = paragraphs.slice(1).join('\n\n');
+  const descHtml = eerste
+    ? `<p class="desc">${escapeHtml(eerste)}</p>` +
+      (rest ? `<details class="more"><summary>Lees meer</summary><p>${escapeHtml(rest)}</p></details>` : '')
+    : '';
+
+  const linksHtml = (area.links||[]).length
+    ? `<div class="links-row">` + area.links.map(l=>
+        `<a class="link-pill ${l.extern?'extern':'intern'}" href="${l.url}" target="_blank" rel="noopener">${escapeHtml(l.tekst)}${l.extern?' ↗':''}</a>`
+      ).join('') + `</div>`
+    : '';
+
+  const seizoenBadge = area.seizoensregel_check
+    ? `<span class="seizoen-badge" title="De beschrijving noemt een datum/periode — check zelf of dit ook voor zwemmen geldt, bv. via de links hieronder.">⚠️ Seizoensregel — check zelf</span>`
+    : '';
+
+  const bestaandeNotitie = getNote(area.slug);
+  const noteHtml = `
+    <details class="note-block" ${bestaandeNotitie ? 'open':''}>
+      <summary>${bestaandeNotitie ? '📝 jouw notitie' : '+ eigen notitie toevoegen'}</summary>
+      <textarea class="note-textarea" data-slug="${area.slug}" placeholder="Bv. regels die je zelf hebt opgezocht: mag niet zwemmen van 15 mei t/m 15 sept volgens SBB...">${escapeHtml(bestaandeNotitie)}</textarea>
+    </details>`;
+
+  return `
+    <div class="card">
+      <img class="thumb" loading="lazy" src="${area.afbeelding||''}" alt="${escapeHtml(area.naam)}" onerror="this.style.display='none'">
+      <div class="body">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          ${typeLabel?`<span class="type-pill">${typeLabel}</span>`:''}
+          ${seizoenBadge}
+        </div>
+        <h3>${escapeHtml(area.naam)||'Onbekend'}</h3>
+        <p class="plaats">${escapeHtml([area.plaats, area.provincie].filter(Boolean).join(', '))}</p>
+        <div class="kenmerken-row">${kenmerkenBadges}</div>
+        ${descHtml}
+        ${linksHtml}
+        <div class="card-footer">
+          <span class="views mono">${area.keer_bekeken ? area.keer_bekeken.toLocaleString('nl-NL')+'× bekeken' : ''}</span>
+          ${area.url?`<a class="source-link" href="${area.url}" target="_blank" rel="noopener">Bekijk origineel ↗</a>`:''}
+        </div>
+        ${noteHtml}
+      </div>
+    </div>`;
+}
+
+function render(){
+  buildTypeChips();
+  buildKenmerkChips();
+  const filtered = sortAreas(DATA.filter(matches));
+  document.getElementById('grid').innerHTML = filtered.map(card).join('');
+  document.getElementById('result-count').textContent = filtered.length;
+  document.getElementById('total-count').textContent = DATA.length;
+  document.getElementById('stat-loaded').textContent = DATA.length;
+  document.getElementById('empty-state').style.display = filtered.length ? 'none' : 'block';
+}
+
+document.getElementById('search').addEventListener('input', e=>{
+  state.query = e.target.value;
+  render();
+});
+document.getElementById('provincie-select').addEventListener('change', e=>{
+  state.provincie = e.target.value;
+  render();
+});
+document.getElementById('sort-select').addEventListener('change', e=>{
+  state.sort = e.target.value;
+  render();
+});
+document.getElementById('seizoen-toggle').addEventListener('click', ()=>{
+  state.seizoenOnly = !state.seizoenOnly;
+  document.getElementById('seizoen-toggle').classList.toggle('active', state.seizoenOnly);
+  render();
+});
+document.getElementById('grid').addEventListener('input', e=>{
+  if(e.target.matches('.note-textarea')){
+    setNote(e.target.dataset.slug, e.target.value);
+  }
+});
+document.getElementById('reset-btn').addEventListener('click', ()=>{
+  state = { query:'', type:null, kenmerken:new Set(), provincie:'', sort:'populariteit', seizoenOnly:false };
+  document.getElementById('search').value = '';
+  document.getElementById('provincie-select').value = '';
+  document.getElementById('sort-select').value = 'populariteit';
+  document.getElementById('seizoen-toggle').classList.remove('active');
+  render();
+});
+document.getElementById('load-btn').addEventListener('click', ()=>{
+  document.getElementById('file-input').click();
+});
+document.getElementById('file-input').addEventListener('change', e=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = evt=>{
+    try{
+      const parsed = JSON.parse(evt.target.result);
+      if(!Array.isArray(parsed)) throw new Error('JSON is geen lijst');
+      DATA = parsed;
+      state.provincie = '';
+      buildProvincieSelect();
+      render();
+      setSourcePill('ok', file.name + ' ✓');
+    }catch(err){
+      alert('Kon dit bestand niet inladen: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+});
+
+buildProvincieSelect();
+render();
+loadOwnData();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  });
+}
+</script>
+
+</body>
+</html>
