@@ -1057,26 +1057,77 @@ document.addEventListener('click', e=>{
 
 /* ===== Kaarten ===== */
 let viewNl = 'list', viewZwolle = 'list';
-let mapNl = null, markersNl = null;
-let mapZwolle = null, markersZwolle = null;
+let mapNl = null, markersNl = null, routeLayersNl = null;
+let mapZwolle = null, markersZwolle = null, routeLayersZwolle = null;
 
 const TILE_URL = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
 const TILE_ATTR = '© <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>';
-
 const markerStyle = { radius:9, fillColor:'#6e8c5e', color:'#3c4f35', weight:2, opacity:1, fillOpacity:0.9 };
+const ROUTE_COLORS = ['#6e8c5e','#4fa8c9','#d9a441','#c4683a','#9b7ecf','#5ea88c','#c96b4f','#4f7ec9'];
+
+const routeGeomCache = {};
+
+async function fetchRoutesWithGeom(lat, lon){
+  const key = `geom:${lat.toFixed(3)},${lon.toFixed(3)}`;
+  if(routeGeomCache[key]) return routeGeomCache[key];
+  const query = `[out:json][timeout:30];relation["route"~"^(hiking|foot)$"](around:3000,${lat},${lon});out geom;`;
+  const resp = await fetch('https://overpass-api.de/api/interpreter',{ method:'POST', body:query });
+  if(!resp.ok) throw new Error('Overpass niet beschikbaar');
+  const data = await resp.json();
+  const routes = data.elements
+    .filter(el => el.tags && el.tags.name && el.members)
+    .sort((a,b)=>{
+      const sa=(a.tags.operator||'').toLowerCase().includes('staatsbosbeheer');
+      const sb=(b.tags.operator||'').toLowerCase().includes('staatsbosbeheer');
+      if(sa!==sb) return sa?-1:1;
+      return (a.tags.name||'').localeCompare(b.tags.name||'','nl');
+    })
+    .slice(0,8);
+  routeGeomCache[key] = routes;
+  return routes;
+}
+
+function showRoutesOnMap(theMap, routes, layerGroup){
+  layerGroup.clearLayers();
+  routes.forEach((route, i)=>{
+    const color = ROUTE_COLORS[i % ROUTE_COLORS.length];
+    const t = route.tags;
+    const sbh = (t.operator||'').toLowerCase().includes('staatsbosbeheer');
+    const nm  = (t.operator||'').toLowerCase().includes('natuurmonumenten');
+    const url = t.website || t.url || `https://www.openstreetmap.org/relation/${route.id}`;
+    const dist = t.distance || t.length || '';
+    const opLabel = sbh ? 'Staatsbosbeheer' : nm ? 'Natuurmonumenten' : (t.operator||'');
+    const popup = `<p class="popup-naam" style="font-size:15px">${escapeHtml(t.name)}</p>
+      <p class="popup-sub">${escapeHtml(opLabel)}${dist?' · '+dist+' km':''}</p>
+      <div class="popup-actions"><a class="popup-orig" href="${url}" target="_blank" rel="noopener">Meer info ↗</a></div>`;
+
+    (route.members||[])
+      .filter(m => m.type==='way' && m.geometry && m.geometry.length>=2)
+      .forEach(way=>{
+        const latlngs = way.geometry.map(pt=>[pt.lat, pt.lon]);
+        L.polyline(latlngs,{ color, weight:4, opacity:0.85 })
+          .bindPopup(popup,{ maxWidth:240 })
+          .addTo(layerGroup);
+      });
+  });
+}
 
 function initMapNl(){
   if(mapNl) return;
   mapNl = L.map('map-nl').setView([52.3, 5.3], 7);
   L.tileLayer(TILE_URL, { attribution:TILE_ATTR, maxZoom:18 }).addTo(mapNl);
-  markersNl = L.layerGroup().addTo(mapNl);
+  routeLayersNl = L.layerGroup().addTo(mapNl);
+  markersNl = L.layerGroup().addTo(mapNl); // markers boven routes
+  mapNl.on('click', ()=> routeLayersNl.clearLayers());
 }
 
 function initMapZwolle(){
   if(mapZwolle) return;
   mapZwolle = L.map('map-zwolle').setView([52.51, 6.09], 12);
   L.tileLayer(TILE_URL, { attribution:TILE_ATTR, maxZoom:18 }).addTo(mapZwolle);
+  routeLayersZwolle = L.layerGroup().addTo(mapZwolle);
   markersZwolle = L.layerGroup().addTo(mapZwolle);
+  mapZwolle.on('click', ()=> routeLayersZwolle.clearLayers());
 }
 
 function popupNl(area){
@@ -1102,14 +1153,27 @@ function popupZwolle(loc){
     </div>`;
 }
 
+function attachRouteLoader(marker, lat, lon, layerGroup, theMap){
+  marker.on('click', ()=>{
+    routeLayersNl && routeLayersNl !== layerGroup && routeLayersNl.clearLayers();
+    routeLayersZwolle && routeLayersZwolle !== layerGroup && routeLayersZwolle.clearLayers();
+    layerGroup.clearLayers();
+    fetchRoutesWithGeom(lat, lon)
+      .then(routes => showRoutesOnMap(theMap, routes, layerGroup))
+      .catch(()=>{});
+  });
+}
+
 function updateMapNl(filtered){
   initMapNl();
   markersNl.clearLayers();
+  routeLayersNl.clearLayers();
   const bounds = [];
   filtered.forEach(area=>{
     if(!area.lat || !area.lon) return;
     const m = L.circleMarker([area.lat,area.lon], markerStyle);
     m.bindPopup(popupNl(area), { maxWidth:260 });
+    attachRouteLoader(m, area.lat, area.lon, routeLayersNl, mapNl);
     markersNl.addLayer(m);
     bounds.push([area.lat,area.lon]);
   });
@@ -1120,10 +1184,12 @@ function updateMapNl(filtered){
 function updateMapZwolle(filtered){
   initMapZwolle();
   markersZwolle.clearLayers();
+  routeLayersZwolle.clearLayers();
   filtered.forEach(loc=>{
     if(!loc.lat || !loc.lon) return;
     const m = L.circleMarker([loc.lat,loc.lon], markerStyle);
     m.bindPopup(popupZwolle(loc), { maxWidth:220 });
+    attachRouteLoader(m, loc.lat, loc.lon, routeLayersZwolle, mapZwolle);
     markersZwolle.addLayer(m);
   });
   setTimeout(()=>mapZwolle.invalidateSize(), 50);
