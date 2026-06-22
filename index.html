@@ -400,6 +400,36 @@
   .link-pill.intern{color:var(--text-muted);background:transparent;}
   .link-pill.intern:hover{border-color:var(--line-strong);}
 
+  /* ---------- wandelroutes ---------- */
+  .routes-section{border-top:1px solid var(--line);padding-top:10px;margin-top:2px;}
+  .routes-load-btn{
+    background:none;
+    border:1px solid var(--line-strong);
+    color:var(--text-muted);
+    border-radius:8px;
+    padding:7px 12px;
+    font-size:12px;
+    font-family:'Public Sans',sans-serif;
+    cursor:pointer;
+    width:100%;
+    text-align:left;
+    transition:color .12s,border-color .12s;
+    display:flex;align-items:center;gap:6px;
+  }
+  .routes-load-btn:hover{color:var(--text);border-color:var(--moss);}
+  .routes-load-btn:disabled{opacity:.5;cursor:default;}
+  .route-list{display:flex;flex-direction:column;gap:0;}
+  .route-item{
+    display:flex;justify-content:space-between;align-items:baseline;gap:8px;
+    padding:6px 0;border-bottom:1px solid var(--line);font-size:13px;
+  }
+  .route-item:last-child{border-bottom:none;}
+  .route-link{color:var(--text);text-decoration:none;font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .route-link:hover{color:var(--moss);}
+  .route-link.sbh{color:var(--moss);}
+  .route-meta{font-size:11px;color:var(--text-muted);flex:none;white-space:nowrap;}
+  .route-err{font-size:12px;color:var(--rust);margin:4px 0 0;}
+
   .note-block{border-top:1px solid var(--line);padding-top:10px;}
   .note-block summary{
     font-size:12px;
@@ -870,6 +900,13 @@ function card(area){
             ${area.url?`<a class="source-link" href="${area.url}" target="_blank" rel="noopener">Origineel ↗</a>`:''}
           </span>
         </div>
+        ${area.lat && area.lon ? `
+        <div class="routes-section" id="routes-${area.slug}">
+          <button class="routes-load-btn" data-slug="${area.slug}" data-lat="${area.lat}" data-lon="${area.lon}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h12"/></svg>
+            Wandelroutes in de buurt
+          </button>
+        </div>` : ''}
         ${noteHtml}
       </div>
     </div>`;
@@ -943,6 +980,80 @@ document.getElementById('file-input').addEventListener('change', e=>{
   };
   reader.readAsText(file);
 });
+
+/* ===== Wandelroutes (Overpass / OSM) ===== */
+const routeCache = {};
+
+async function fetchRoutes(lat, lon){
+  const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+  if(routeCache[key]) return routeCache[key];
+
+  const query = `[out:json][timeout:20];
+relation["route"~"^(hiking|foot)$"](around:3000,${lat},${lon});
+out tags;`;
+
+  const resp = await fetch('https://overpass-api.de/api/interpreter', {
+    method:'POST', body:query
+  });
+  if(!resp.ok) throw new Error('Overpass API niet beschikbaar');
+  const data = await resp.json();
+
+  const routes = data.elements
+    .filter(el => el.tags && el.tags.name)
+    .sort((a,b) => {
+      // SBB eerst, daarna op naam
+      const sa = (a.tags.operator||'').toLowerCase().includes('staatsbosbeheer');
+      const sb = (b.tags.operator||'').toLowerCase().includes('staatsbosbeheer');
+      if(sa !== sb) return sa ? -1 : 1;
+      return (a.tags.name||'').localeCompare(b.tags.name||'', 'nl');
+    })
+    .slice(0, 8);
+
+  routeCache[key] = routes;
+  return routes;
+}
+
+function showRoutes(slug, routes){
+  const section = document.getElementById('routes-' + slug);
+  if(!section) return;
+  if(!routes.length){
+    section.innerHTML = '<p class="route-err" style="color:var(--text-muted)">Geen wandelroutes gevonden binnen 3 km.</p>';
+    return;
+  }
+  section.innerHTML = '<div class="route-list">' + routes.map(r=>{
+    const t = r.tags;
+    const sbh = (t.operator||'').toLowerCase().includes('staatsbosbeheer');
+    const nm = (t.operator||'').toLowerCase().includes('natuurmonumenten');
+    const url = t.website || t.url || `https://www.openstreetmap.org/relation/${r.id}`;
+    const dist = t.distance || t['osmc:length'] || t.length || '';
+    const opLabel = sbh ? 'SBB' : nm ? 'NM' : (t.operator ? escapeHtml(t.operator.slice(0,12)) : '');
+    const meta = [opLabel, dist ? dist+'km' : ''].filter(Boolean).join(' · ');
+    return `<div class="route-item">
+      <a class="route-link ${sbh||nm?'sbh':''}" href="${url}" target="_blank" rel="noopener" title="${escapeHtml(t.name)}">${escapeHtml(t.name)} ↗</a>
+      ${meta ? `<span class="route-meta">${meta}</span>` : ''}
+    </div>`;
+  }).join('') + '</div>';
+}
+
+async function handleRoutesBtnClick(btn){
+  const {slug, lat, lon} = btn.dataset;
+  btn.disabled = true;
+  btn.querySelector('svg') && (btn.querySelector('svg').style.display = 'none');
+  btn.childNodes[btn.childNodes.length-1].textContent = ' Laden…';
+  try{
+    const routes = await fetchRoutes(parseFloat(lat), parseFloat(lon));
+    showRoutes(slug, routes);
+  }catch(err){
+    const section = document.getElementById('routes-' + slug);
+    if(section) section.innerHTML = `<p class="route-err">Kon routes niet laden: ${escapeHtml(err.message)}</p>`;
+  }
+}
+
+document.addEventListener('click', e=>{
+  const btn = e.target.closest('.routes-load-btn');
+  if(btn && !btn.disabled) handleRoutesBtnClick(btn);
+});
+/* ===== einde Wandelroutes ===== */
 
 /* ===== Kaarten ===== */
 let viewNl = 'list', viewZwolle = 'list';
@@ -1100,12 +1211,20 @@ function renderZwolle(){
           const distText = geoState.lat!==null && loc.lat && loc.lon
             ? ` · <span class="dist-badge">${Math.round(haversine(geoState.lat,geoState.lon,loc.lat,loc.lon))} km</span>`
             : '';
-          return `<div class="zwolle-card">
-            <div>
-              <div class="naam">${escapeHtml(loc.naam)}</div>
-              <div class="buurt-label">${escapeHtml(loc.buurt)}${distText}</div>
+          return `<div class="zwolle-card" style="flex-direction:column;align-items:stretch;gap:10px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+              <div>
+                <div class="naam">${escapeHtml(loc.naam)}</div>
+                <div class="buurt-label">${escapeHtml(loc.buurt)}${distText}</div>
+              </div>
+              <a class="maps-link" style="flex:none" href="${mapsUrl}" target="_blank" rel="noopener">Route ↗</a>
             </div>
-            <a class="maps-link" href="${mapsUrl}" target="_blank" rel="noopener">Route ↗</a>
+            <div class="routes-section" id="routes-${loc.slug}" style="border-top:1px solid var(--line);padding-top:8px;margin:0;">
+              <button class="routes-load-btn" data-slug="${loc.slug}" data-lat="${loc.lat}" data-lon="${loc.lon}">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h12"/></svg>
+                Wandelroutes in de buurt
+              </button>
+            </div>
           </div>`;
         }).join('')}
       </div>
